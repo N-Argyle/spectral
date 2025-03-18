@@ -2,6 +2,10 @@
 
 A browser-based spectrophotometer for webcams.
 
+## Demo
+
+[Test it out on Vercel](https://spectral-lilac.vercel.app/)
+
 ## Overview
 
 Spectral is a web-based spectrophotometer application that allows you to perform basic spectrophotometric analysis using a regular webcam and a CD as a diffraction grating. The application captures spectra from the webcam feed, allows you to take reference and sample measurements, and calculates absorbance values.
