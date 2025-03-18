@@ -1,16 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import WebcamCapture from "~/components/WebcamCapture";
 import SpectralAnalysis from "~/components/SpectralAnalysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Beaker, Download } from "lucide-react";
+import { BlackoutStatus } from "~/components/spectral/BlackoutStatus";
 
 export default function HomePage() {
   const [currentFrame, setCurrentFrame] = useState<ImageData | undefined>();
   const [referenceFrame, setReferenceFrame] = useState<ImageData | undefined>();
   const [sampleFrame, setSampleFrame] = useState<ImageData | undefined>();
+  const [blackoutCalibrationData, setBlackoutCalibrationData] = useState<ImageData | null>(null);
+
+  // Debug log for frame updates
+  useEffect(() => {
+    console.log("Current frame updated:", !!currentFrame);
+  }, [currentFrame]);
+
+  // Debug log for reference and sample frames
+  useEffect(() => {
+    console.log("Reference frame captured:", !!referenceFrame);
+  }, [referenceFrame]);
+
+  useEffect(() => {
+    console.log("Sample frame captured:", !!sampleFrame);
+  }, [sampleFrame]);
+
+  // Debug log for blackout calibration data
+  useEffect(() => {
+    console.log("HomePage: blackoutCalibrationData changed:", 
+      blackoutCalibrationData ? `${blackoutCalibrationData.width}x${blackoutCalibrationData.height}` : "null");
+  }, [blackoutCalibrationData]);
+
+  // Handle blackout calibration
+  const handleBlackoutCalibrated = useCallback((imageData: ImageData) => {
+    console.log("Blackout calibration received in parent");
+    setBlackoutCalibrationData(imageData);
+  }, []);
+
+  // Handle frame capture from webcam
+  const handleFrameCapture = useCallback((imageData: ImageData, blackoutData: ImageData | null) => {
+    if (imageData && imageData.width > 0 && imageData.height > 0) {
+      setCurrentFrame(imageData);
+      
+      // The blackoutData should come from the WebcamCapture component's blackoutCalibrationRef
+      // Don't modify blackoutCalibrationData here, as that happens in handleBlackoutCalibrated
+      // This prevents potential update loops between the components
+    }
+  }, []); // Empty dependency array ensures this doesn't change with other state changes
 
   const downloadSpectralData = () => {
     if (!referenceFrame || !sampleFrame) return;
@@ -92,9 +131,10 @@ export default function HomePage() {
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           <div>
             <WebcamCapture 
-              onFrameCapture={setCurrentFrame}
+              onFrameCapture={handleFrameCapture}
               onReferenceCaptured={setReferenceFrame}
               onSampleCaptured={setSampleFrame}
+              onBlackoutCalibrated={handleBlackoutCalibrated}
             />
           </div>
           
@@ -103,6 +143,7 @@ export default function HomePage() {
               currentFrame={currentFrame}
               referenceFrame={referenceFrame}
               sampleFrame={sampleFrame}
+              blackoutCalibrationData={blackoutCalibrationData}
             />
           </div>
           
@@ -134,6 +175,11 @@ export default function HomePage() {
                       <li>Keep camera and setup stable between measurements</li>
                       <li>Consider averaging multiple measurements for precision</li>
                     </ul>
+                    
+                    <div className="mt-4 mb-4">
+                      <h4 className="font-medium mb-1">Calibration Status:</h4>
+                      <BlackoutStatus blackoutCalibrationData={blackoutCalibrationData} />
+                    </div>
                     
                     <div className="mt-6">
                       <Button
