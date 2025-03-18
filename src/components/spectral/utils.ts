@@ -64,16 +64,16 @@ export function processImageData(
   blackoutCalibrationData?: ImageData
 ): number[] {
   // Skip processing if we don't have imageData
-  if (!imageData || !imageData.data) {
+  if (!imageData?.data) {
     console.warn('No image data available to process');
     return new Array(SPECTRUM_RESOLUTION).fill(0);
   }
 
   // Create arrays for each channel's intensity profile
-  const redIntensities: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const greenIntensities: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const blueIntensities: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const counts: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const redIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const greenIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const blueIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const counts = new Array(SPECTRUM_RESOLUTION).fill(0);
 
   const { width, height, data } = imageData;
   const blackoutData = blackoutCalibrationData?.data;
@@ -100,8 +100,9 @@ export function processImageData(
       }
       
       // Calculate adjusted values (prevent negatives)
+      // Increase green channel subtraction to reduce excess green intensity
       const adjR = Math.max(0, r - (noiseR * 0.95));
-      const adjG = Math.max(0, g - (noiseG * 0.95));
+      const adjG = Math.max(0, g - (noiseG * 1.05)); // Increased subtraction for green
       const adjB = Math.max(0, b - (noiseB * 0.95));
       
       // Map the x position to a wavelength index (assuming linear mapping)
@@ -109,23 +110,23 @@ export function processImageData(
       const spectrumIndex = Math.floor(xRatio * SPECTRUM_RESOLUTION);
       
       if (spectrumIndex >= 0 && spectrumIndex < SPECTRUM_RESOLUTION) {
-        redIntensities[spectrumIndex] += adjR;
-        greenIntensities[spectrumIndex] += adjG;
-        blueIntensities[spectrumIndex] += adjB;
-        counts[spectrumIndex]++;
+        if (redIntensities[spectrumIndex] !== undefined) redIntensities[spectrumIndex] += adjR;
+        if (greenIntensities[spectrumIndex] !== undefined) greenIntensities[spectrumIndex] += adjG;
+        if (blueIntensities[spectrumIndex] !== undefined) blueIntensities[spectrumIndex] += adjB;
+        if (counts[spectrumIndex] !== undefined) counts[spectrumIndex]++;
       }
     }
   }
 
   // Calculate weighted intensity for each wavelength
-  const intensities: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const intensities = new Array(SPECTRUM_RESOLUTION).fill(0);
   
   for (let i = 0; i < SPECTRUM_RESOLUTION; i++) {
-    if (counts[i] > 0) {
+    if (counts[i] !== undefined && counts[i] > 0) {
       // Normalize by count
-      const avgR = redIntensities[i] / counts[i];
-      const avgG = greenIntensities[i] / counts[i];
-      const avgB = blueIntensities[i] / counts[i];
+      const avgR = redIntensities[i] !== undefined ? redIntensities[i] / counts[i] : 0;
+      const avgG = greenIntensities[i] !== undefined ? greenIntensities[i] / counts[i] : 0;
+      const avgB = blueIntensities[i] !== undefined ? blueIntensities[i] / counts[i] : 0;
       
       // Map spectrum index to approx wavelength (380-750nm)
       const wavelength = 380 + (i / SPECTRUM_RESOLUTION) * (750 - 380);
@@ -133,31 +134,31 @@ export function processImageData(
       // Weights based on typical camera sensor response curves (approximated)
       let redWeight = 0, greenWeight = 0, blueWeight = 0;
       
-      // Approximate weights based on wavelength
+      // Adjusted weights to reduce green dominance
       if (wavelength < 490) { // Blue region
         blueWeight = 1.0;
-        greenWeight = 0.3;
+        greenWeight = 0.2;  // Reduced from 0.3
         redWeight = 0.0;
       } else if (wavelength < 580) { // Green region
         blueWeight = 0.2;
-        greenWeight = 1.0;
+        greenWeight = 0.7;  // Reduced from 1.0
         redWeight = 0.2;
       } else { // Red region
         blueWeight = 0.0;
-        greenWeight = 0.3;
+        greenWeight = 0.2;  // Reduced from 0.3
         redWeight = 0.8;
       }
       
-      // Calculate weighted intensity
+      // Calculate weighted intensity with adjusted scaling
       intensities[i] = (avgR * redWeight + avgG * greenWeight + avgB * blueWeight);
     }
   }
   
   // Apply smoothing with a gaussian kernel to reduce noise
-  const smoothedIntensities: number[] = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const smoothedIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
   const kernelSize = 5;
   const sigma = 1.0;
-  const kernel: number[] = createGaussianKernel(kernelSize, sigma);
+  const kernel = createGaussianKernel(kernelSize, sigma);
   
   for (let i = 0; i < SPECTRUM_RESOLUTION; i++) {
     let sum = 0;
@@ -167,8 +168,8 @@ export function processImageData(
       const index = i + k;
       if (index >= 0 && index < SPECTRUM_RESOLUTION) {
         const kernelIndex = k + Math.floor(kernelSize/2);
-        const kernelValue = kernel[kernelIndex] || 0; // Use default of 0 if undefined
-        sum += intensities[index] * kernelValue;
+        const kernelValue = kernel[kernelIndex] ?? 0; // Using nullish coalescing
+        sum += (intensities[index] ?? 0) * kernelValue;
         weightSum += kernelValue;
       }
     }
@@ -248,72 +249,85 @@ export function drawSpectralLine(
   // Apply additional smoothing for better visualization
   const smoothedData = smoothSpectrum(data, 1.5);
   
-  // Safely filter out invalid values and find maximum
+  // Safely filter out invalid values
   const validValues = smoothedData.filter(v => 
     typeof v === 'number' && !isNaN(v)
   );
   
-  // Make sure we have at least one valid value, otherwise use 0.001 as fallback
-  // Using a more reliable way to find max - sometimes the data can have extreme outliers
-  let maxVal = 0.001;
+  // Set a fixed max value for a more stable display
+  // If data is already normalized (0-1), this will be 1.0
+  // Otherwise, use the 95th percentile to avoid outliers
+  let maxVal = 0.1; // Minimum threshold
+
   if (validValues.length > 0) {
-    // First find the 95th percentile to avoid extreme outliers skewing the scale
-    const sortedValues = [...validValues].sort((a, b) => a - b);
-    const p95Index = Math.floor(sortedValues.length * 0.95);
-    const p95Value = sortedValues[p95Index] || sortedValues[sortedValues.length - 1];
+    // Check if data looks normalized (most values <= 1.0)
+    const normalizedDataCount = validValues.filter(v => v <= 1.0).length;
+    const dataAppearsNormalized = normalizedDataCount > validValues.length * 0.9;
     
-    // Use either the 95th percentile or a reasonable maximum, whichever is lower
-    maxVal = Math.min(p95Value * 1.2, Math.max(...validValues));
-    
-    // Ensure we have a reasonable minimum value for scaling
-    maxVal = Math.max(maxVal, 0.1);
+    if (dataAppearsNormalized) {
+      // For normalized data, use a fixed scale with maximum of 1.0
+      maxVal = 1.0;
+      console.log("Using normalized scale (0-1)");
+    } else {
+      // For raw data, use a percentile approach to avoid outliers
+      const sortedValues = [...validValues].sort((a, b) => a - b);
+      const p95Index = Math.floor(sortedValues.length * 0.95);
+      // Use null coalescing to provide a fallback
+      const p95Value = sortedValues[p95Index] ?? sortedValues[sortedValues.length - 1] ?? 0.1;
+      maxVal = Math.max(p95Value, 0.1);
+      console.log("Using percentile scale, max:", maxVal);
+    }
   }
-  
-  console.log("Max value for scaling:", maxVal);
 
   // Begin path for drawing the spectrum line
   ctx.beginPath();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   
-  // Use bezier curves for smoother lines
-  const xScale = (width - 40) / (data.length - 1);
-  const points: [number, number][] = [];
+  // Calculate x-scale based on data length
+  const xScale = (width - 40) / Math.max(1, data.length - 1);
+  const points: Array<[number, number]> = [];
   
   // First collect all valid points
   for (let i = 0; i < smoothedData.length; i++) {
     const value = smoothedData[i];
     if (typeof value !== 'number' || isNaN(value)) continue;
     
-    // Normalize the value to ensure it fits within the chart
-    // Use Math.min to ensure values don't go off the chart
-    const normalizedValue = Math.min(value, maxVal) / maxVal;
+    // Ensure value is clamped between 0 and maxVal
+    const clampedValue = Math.max(0, Math.min(value, maxVal));
     
+    // Convert to a 0-1 scale for consistent display
+    const normalizedValue = clampedValue / maxVal;
+    
+    // Calculate x and y coordinates
     const x = 20 + i * xScale;
+    
+    // Height calculations: 
+    // - Start at bottom (height - 20)
+    // - Move up based on normalized value
+    // - Apply intensity multiplier
+    // - Scale by available height (height - 60)
     const y = height - 20 - (normalizedValue * intensityMultiplier) * (height - 60);
     
-    // Ensure y is within chart boundaries
+    // Ensure y is within chart boundaries (with a small buffer)
     const safeY = Math.max(20, Math.min(height - 20, y));
     
-    points.push([x, safeY]);
+    if (points) points.push([x, safeY]);
   }
   
   // Now draw using the points
-  if (points.length > 0) {
+  if (points && points.length > 0 && points[0]) {
     // Move to the first point
-    ctx.moveTo(points[0][0], points[0][1]);
-    
-    // For simple data sets with few points, draw straight lines
-    if (points.length <= 3) {
+    const firstPoint = points[0];
+    if (firstPoint && typeof firstPoint[0] === 'number' && typeof firstPoint[1] === 'number') {
+      ctx.moveTo(firstPoint[0], firstPoint[1]);
+      
+      // For all data sets, draw straight lines (simpler and more reliable)
       for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i][0], points[i][1]);
-      }
-    } 
-    // For more complex data, use a curve interpolation for smoother lines
-    else {
-      // Use a simpler approach that's less prone to artifacts
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i][0], points[i][1]);
+        const point = points[i];
+        if (point && typeof point[0] === 'number' && typeof point[1] === 'number') {
+          ctx.lineTo(point[0], point[1]);
+        }
       }
     }
   }
@@ -337,11 +351,15 @@ export function drawSpectralLine(
   ctx.shadowOffsetY = 0;
 
   // Draw optional fill below the line
-  if (points.length > 0) {
-    ctx.lineTo(width - 20, height - 20);
-    ctx.lineTo(20, height - 20);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fill();
+  if (points && points.length > 0) {
+    // Find the last valid point for filling
+    const lastValidPoint = points[points.length - 1];
+    if (lastValidPoint && typeof lastValidPoint[0] === 'number') {
+      ctx.lineTo(lastValidPoint[0], height - 20);
+      ctx.lineTo(20, height - 20);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fill();
+    }
   }
   
   ctx.closePath();
