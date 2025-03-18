@@ -70,24 +70,13 @@ export default function LiveSpectrum({ currentFrame, blackoutCalibrationData, on
     // Find max value for this frame
     const frameMax = Math.max(...processedData.filter(v => typeof v === 'number' && !isNaN(v)), 0.01);
     
-    // Handle very high peaks (which may be outliers) by using a more conservative approach
-    // Set a ceiling on the maximum value to prevent scaling issues
-    const maxAllowedValue = 255; // Limit the max value to a reasonable ceiling
-    
-    let newMaxValue = maxSeenValueRef.current;
-    
-    // If the frame's max value is higher than our current max, adapt up quickly but with a ceiling
+    // Update rolling maximum with some decay to adapt to changing conditions
     if (frameMax > maxSeenValueRef.current) {
-      newMaxValue = Math.min(frameMax, maxAllowedValue);
+      maxSeenValueRef.current = frameMax;
     } else {
-      // Slower decay for stability (5% decay instead of 10%)
-      newMaxValue = 0.95 * maxSeenValueRef.current + 0.05 * frameMax;
-      // Ensure we don't drop too low to maintain stable scaling
-      newMaxValue = Math.max(newMaxValue, frameMax * 1.2);
+      // Slowly decay max value to adjust to changing conditions (10% decay)
+      maxSeenValueRef.current = 0.9 * maxSeenValueRef.current + 0.1 * frameMax;
     }
-    
-    // Update our max value reference
-    maxSeenValueRef.current = newMaxValue;
     
     console.log("Current max value:", maxSeenValueRef.current);
     
@@ -95,22 +84,8 @@ export default function LiveSpectrum({ currentFrame, blackoutCalibrationData, on
     // Also normalize values to a more consistent range
     const safeProcessedData = processedData.map(v => {
       if (typeof v !== 'number' || isNaN(v)) return 0;
-      
-      // Apply wavelength-specific scaling to reduce green dominance even further
-      // Get the wavelength for this spectrum position
-      const index = processedData.indexOf(v);
-      const wavelength = 380 + (index / processedData.length) * (750 - 380);
-      
-      let scaleMultiplier = 1.0;
-      
-      // Apply additional scaling to the green region
-      if (wavelength > 500 && wavelength < 570) {
-        // Scale down the green region further
-        scaleMultiplier = 0.85;
-      }
-      
-      // Normalize to a reasonable range for display with wavelength-specific scaling
-      return (v / maxSeenValueRef.current) * scaleMultiplier;
+      // Normalize to a reasonable range for display
+      return v / maxSeenValueRef.current;
     });
     
     // Reset empty frame counter when we get a new frame
@@ -229,30 +204,13 @@ export default function LiveSpectrum({ currentFrame, blackoutCalibrationData, on
       // Draw spectrum data if available
       if (currentIntensityData.length > 0) {
         // Use a more moderate intensity multiplier to prevent off-chart values
-        // The multiplier should be conservative since we now scale in the preprocessing step
-        const intensityMultiplier = 1.0;
+        // Scale is now better managed in the preprocessing step
+        const intensityMultiplier = 1.2;
         
         // Use enhanced drawing with anti-aliasing and smoother lines
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.lineWidth = 2;
-        
-        // Draw y-axis grid lines for better reference
-        ctx.strokeStyle = 'rgba(100, 100, 100, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 2]);
-        
-        // Draw grid lines at 0.25, 0.50, and 0.75 of the height
-        [0.25, 0.5, 0.75].forEach(level => {
-          const yPos = 20 + (level * (displayHeight - 40));
-          ctx.beginPath();
-          ctx.moveTo(20, yPos);
-          ctx.lineTo(displayWidth - 20, yPos);
-          ctx.stroke();
-        });
-        
-        // Reset line dash
-        ctx.setLineDash([]);
         
         drawSpectralLine(ctx, currentIntensityData, displayWidth, displayHeight, gradient, 'rgba(0, 0, 0, 0.5)', intensityMultiplier);
         

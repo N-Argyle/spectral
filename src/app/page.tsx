@@ -5,9 +5,9 @@ import WebcamCapture from "~/components/WebcamCapture";
 import SpectralAnalysis from "~/components/SpectralAnalysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Beaker, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { BlackoutStatus } from "~/components/spectral/BlackoutStatus";
-
+import Image from "next/image";
 export default function HomePage() {
   const [currentFrame, setCurrentFrame] = useState<ImageData | undefined>();
   const [referenceFrame, setReferenceFrame] = useState<ImageData | undefined>();
@@ -122,10 +122,10 @@ export default function HomePage() {
       <div className="container p-4 md:p-6 flex flex-col mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Beaker className="h-8 w-8" />
-            Spectral Web
+            <Image src="/logo.png" alt="Spectral" width={32} height={32} />
+            Spectral
           </h1>
-          <p className="text-muted-foreground">Web-based spectrophotometer for chemical analysis</p>
+          <p className="text-muted-foreground">Browser-based spectrophotometer</p>
         </header>
         
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">

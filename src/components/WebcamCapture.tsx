@@ -109,6 +109,45 @@ export default function WebcamCapture({
     };
   }, []);
 
+  // Add new effect to resize the canvas when the video metadata is loaded
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    
+    const handleResize = () => {
+      // Get the actual video dimensions
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      
+      if (videoWidth && videoHeight) {
+        // Set canvas dimensions to match video dimensions
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+        console.log(`Canvas resized to match video: ${videoWidth}x${videoHeight}`);
+      }
+    };
+    
+    // Set initial dimensions when video metadata loads
+    const handleLoadedMetadata = () => {
+      handleResize();
+    };
+    
+    // Also handle window resize events to maintain proper scaling
+    window.addEventListener('resize', handleResize);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    // Call immediately in case the video is already loaded
+    if (video.videoWidth) {
+      handleResize();
+    }
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [videoRef.current, canvasRef.current]);
+
   // Connect to selected webcam
   useEffect(() => {
     if (!selectedDeviceId || !videoRef.current) return;

@@ -342,25 +342,13 @@ export function drawSpectralLine(
   ctx.strokeStyle = style;
   ctx.lineWidth = 2;
   
-  // Draw the path
+  // Draw the path (just the line, not filled yet)
   ctx.stroke();
   
   // Reset shadow settings
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-
-  // Draw optional fill below the line
-  if (points && points.length > 0) {
-    // Find the last valid point for filling
-    const lastValidPoint = points[points.length - 1];
-    if (lastValidPoint && typeof lastValidPoint[0] === 'number') {
-      ctx.lineTo(lastValidPoint[0], height - 20);
-      ctx.lineTo(20, height - 20);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.fill();
-    }
-  }
   
   ctx.closePath();
 }
