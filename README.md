@@ -1,12 +1,10 @@
-# Spectral Web
+# Spectral
 
-A browser-based spectrophotometer application built with Next.js 15 and modern web technologies.
+A browser-based spectrophotometer for webcams.
 
 ## Overview
 
-Spectral Web is a web-based spectrophotometer application that allows you to perform basic spectrophotometric analysis using a regular webcam and a CD as a diffraction grating. The application captures spectra from the webcam feed, allows you to take reference and sample measurements, and calculates absorbance values.
-
-![Spectral Web Screenshot](public/screenshot.png)
+Spectral is a web-based spectrophotometer application that allows you to perform basic spectrophotometric analysis using a regular webcam and a CD as a diffraction grating. The application captures spectra from the webcam feed, allows you to take reference and sample measurements, and calculates absorbance values.
 
 ## Features
 
@@ -15,7 +13,7 @@ Spectral Web is a web-based spectrophotometer application that allows you to per
 - Absorbance calculation and visualization
 - Data export in CSV format for further analysis
 - Fully responsive design with dark mode
-- Draggable selection area for optimal spectrum capture
+- Draggable/croppable selection area for optimal spectrum capture
 
 ## Technology Stack
 
@@ -28,17 +26,17 @@ Spectral Web is a web-based spectrophotometer application that allows you to per
 ## How It Works
 
 1. The application accesses your webcam feed
-2. A CD used as a diffraction grating splits light into its component wavelengths
-3. The application processes the image data to extract spectral information
-4. You can take reference and sample measurements to calculate absorbance
+2. Place your webcam in a box with a piece of CD (label and foil removed) over the lens. 
+3. Create a slit in the box and shine a light through the slit.
+4. If using a cuvette, place it in front of the slit.
+5. Place camera at a 45 degree angle to the light source/slit.
+6. You should see a rainbow of colors on the webcam feed. 
+7. The application processes the image data to extract spectral information
+8. You can take reference and sample measurements to calculate absorbance. 
+9. If needed, you can take a blackout calibration to account for the noise from your webcam. Just put tape over then lens and click the blackout button.
+10. Note: Live Spectrum does not show the actual spectrum, rather a spatial representation of the spectrum. It is more of a visual aid for setting up your experiment.
 
 ## Setup Instructions
-
-### Hardware Setup
-
-1. Place a CD (or piece of CD) in front of your webcam lens
-2. Set up a light source (preferably white LED) and a sample holder (cuvet)
-3. Position the setup so the diffracted spectrum is visible in the webcam
 
 ### Software Setup
 
@@ -59,23 +57,22 @@ npm run dev
 ## Usage
 
 1. Place an empty cuvet (or solvent reference) in front of the light source
-2. Adjust the selection box to capture the spectrum
+2. Adjust the selection box to capture the just the rainbow of colors from the diffraction grating (CD). It doesn't work well if you capture the whole frame.
 3. Click "Capture Reference" to record baseline
-4. Replace with your sample cuvet
-5. Click "Capture Sample" to record sample spectrum
-6. View the absorbance tab to see results
-7. Download data for further analysis
+4. Refill the cuvet with your sample and click "Capture Sample" to record sample spectrum
+5. View the absorbance tab to see results
+6. Download data for further analysis
 
 ## Limitations
 
 - Wavelength calibration is approximate
 - Resolution is limited by webcam quality and diffraction setup
 - Best results require stable experimental conditions
-- Intended for educational purposes, not analytical accuracy
+- Intended for educational purposes, not analytical accuracy (it's really not that accurate)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request, or fork the repo. I won't be actively maintaining this project, but I'll try to merge any PRs.
 
 ## License
 
@@ -84,4 +81,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Inspired by DIY spectrophotometry projects
-- Built with Next.js and shadcn/ui components
+- Built with Next.js and shadcn/ui 

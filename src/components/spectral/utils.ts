@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /**
  * Industry-standard utilities for spectral analysis from RGB images
  */
@@ -32,25 +35,6 @@ function wavelengthToRGB(wavelength: number): [number, number, number] {
   return [r * factor, g * factor, b * factor];
 }
 
-/**
- * Helper function to get average RGB values from an ImageData object
- */
-function getAverageRGB(imageData: ImageData): string {
-  const totalPixels = imageData.width * imageData.height;
-  let sumR = 0, sumG = 0, sumB = 0;
-  
-  for (let i = 0; i < imageData.data.length; i += 4) {
-    sumR += imageData.data[i] ?? 0;
-    sumG += imageData.data[i + 1] ?? 0;
-    sumB += imageData.data[i + 2] ?? 0;
-  }
-  
-  const avgR = Math.round(sumR / totalPixels);
-  const avgG = Math.round(sumG / totalPixels);
-  const avgB = Math.round(sumB / totalPixels);
-  
-  return `${avgR}, ${avgG}, ${avgB}`;
-}
 
 // Constants for spectral processing
 export const SPECTRUM_RESOLUTION = 100;
@@ -66,14 +50,15 @@ export function processImageData(
   // Skip processing if we don't have imageData
   if (!imageData?.data) {
     console.warn('No image data available to process');
-    return new Array(SPECTRUM_RESOLUTION).fill(0);
+    return Array(SPECTRUM_RESOLUTION).fill(0) as number[];
   }
 
   // Create arrays for each channel's intensity profile
-  const redIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const greenIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const blueIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
-  const counts = new Array(SPECTRUM_RESOLUTION).fill(0);
+  // Using typed arrays to ensure type safety
+  const redIntensities: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
+  const greenIntensities: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
+  const blueIntensities: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
+  const counts: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
 
   const { width, height, data } = imageData;
   const blackoutData = blackoutCalibrationData?.data;
@@ -110,23 +95,24 @@ export function processImageData(
       const spectrumIndex = Math.floor(xRatio * SPECTRUM_RESOLUTION);
       
       if (spectrumIndex >= 0 && spectrumIndex < SPECTRUM_RESOLUTION) {
-        if (redIntensities[spectrumIndex] !== undefined) redIntensities[spectrumIndex] += adjR;
-        if (greenIntensities[spectrumIndex] !== undefined) greenIntensities[spectrumIndex] += adjG;
-        if (blueIntensities[spectrumIndex] !== undefined) blueIntensities[spectrumIndex] += adjB;
-        if (counts[spectrumIndex] !== undefined) counts[spectrumIndex]++;
+        // Arrays are initialized with the correct size, so index access is safe
+        redIntensities[spectrumIndex] = (redIntensities[spectrumIndex] ?? 0) + adjR;
+        greenIntensities[spectrumIndex] = (greenIntensities[spectrumIndex] ?? 0) + adjG;
+        blueIntensities[spectrumIndex] = (blueIntensities[spectrumIndex] ?? 0) + adjB;
+        counts[spectrumIndex] = (counts[spectrumIndex] ?? 0) + 1;
       }
     }
   }
 
   // Calculate weighted intensity for each wavelength
-  const intensities = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const intensities: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
   
   for (let i = 0; i < SPECTRUM_RESOLUTION; i++) {
-    if (counts[i] !== undefined && counts[i] > 0) {
-      // Normalize by count
-      const avgR = redIntensities[i] !== undefined ? redIntensities[i] / counts[i] : 0;
-      const avgG = greenIntensities[i] !== undefined ? greenIntensities[i] / counts[i] : 0;
-      const avgB = blueIntensities[i] !== undefined ? blueIntensities[i] / counts[i] : 0;
+    if ((counts[i] ?? 0) > 0) {
+      // Normalize by count - using non-null assertion since we know arrays are initialized and index is in range
+      const avgR = redIntensities[i]! / counts[i]!;
+      const avgG = greenIntensities[i]! / counts[i]!;
+      const avgB = blueIntensities[i]! / counts[i]!;
       
       // Map spectrum index to approx wavelength (380-750nm)
       const wavelength = 380 + (i / SPECTRUM_RESOLUTION) * (750 - 380);
@@ -155,7 +141,7 @@ export function processImageData(
   }
   
   // Apply smoothing with a gaussian kernel to reduce noise
-  const smoothedIntensities = new Array(SPECTRUM_RESOLUTION).fill(0);
+  const smoothedIntensities: number[] = Array(SPECTRUM_RESOLUTION).fill(0);
   const kernelSize = 5;
   const sigma = 1.0;
   const kernel = createGaussianKernel(kernelSize, sigma);
@@ -168,9 +154,11 @@ export function processImageData(
       const index = i + k;
       if (index >= 0 && index < SPECTRUM_RESOLUTION) {
         const kernelIndex = k + Math.floor(kernelSize/2);
-        const kernelValue = kernel[kernelIndex] ?? 0; // Using nullish coalescing
-        sum += (intensities[index] ?? 0) * kernelValue;
-        weightSum += kernelValue;
+        if (kernelIndex >= 0 && kernelIndex < kernel.length) {
+          const kernelValue = kernel[kernelIndex]!;
+          sum += intensities[index]! * kernelValue;
+          weightSum += kernelValue;
+        }
       }
     }
     
@@ -184,15 +172,14 @@ export function processImageData(
  * Apply Gaussian smoothing to spectrum data
  */
 function smoothSpectrum(data: number[], sigma = 2): number[] {
-  const result = new Array(data.length).fill(0);
+  const result: number[] = Array(data.length).fill(0);
   const kernelSize = Math.ceil(sigma * 3) * 2 + 1;
   const kernel: number[] = [];
   
   for (let i = -(kernelSize - 1) / 2; i <= (kernelSize - 1) / 2; i++) {
     kernel.push(Math.exp(-(i * i) / (2 * sigma * sigma)));
   }
-  
-  const kernelSum = kernel.reduce((a, b) => a + b, 0);
+
   const halfKernel = Math.floor(kernel.length / 2);
 
   for (let i = 0; i < data.length; i++) {
@@ -201,10 +188,11 @@ function smoothSpectrum(data: number[], sigma = 2): number[] {
     for (let j = 0; j < kernel.length; j++) {
       const idx = i + j - halfKernel;
       if (idx >= 0 && idx < data.length) {
-        // Safely handle undefined values
-        const dataValue = typeof data[idx] === 'number' ? data[idx] : 0;
-        const kernelValue = typeof kernel[j] === 'number' ? kernel[j] : 0;
+        // Get values safely
+        const dataValue = data[idx] ?? 0;
+        const kernelValue = kernel[j] ?? 0;
         
+        // Both are defined because we checked the indices
         sum += dataValue * kernelValue;
         weight += kernelValue;
       }
@@ -237,6 +225,10 @@ export function drawAxes(ctx: CanvasRenderingContext2D, width: number, height: n
     ctx.fillText(`${wl}nm`, x, height - 5);
   }
 }
+
+/**
+ * Draw spectral line visualization
+ */
 export function drawSpectralLine(
   ctx: CanvasRenderingContext2D,
   data: number[],
@@ -352,6 +344,7 @@ export function drawSpectralLine(
   
   ctx.closePath();
 }
+
 /**
  * Draw complete spectral visualization
  */
@@ -379,11 +372,12 @@ export function calculateAbsorbance(
 ): number[] {
   if (!referenceData || !sampleData || referenceData.length !== sampleData.length) {
     console.warn('Invalid data for absorbance calculation');
-    return new Array(SPECTRUM_RESOLUTION).fill(0);
+    return Array(SPECTRUM_RESOLUTION).fill(0) as number[];
   }
 
   return referenceData.map((r, index) => {
-    const s = sampleData[index];
+    // Safely access sampleData with a default of 0 for undefined values
+    const s = sampleData[index] ?? 0;
     
     // Skip calculation if we have invalid values
     if (r <= 0 || s <= 0) return 0;
@@ -470,4 +464,232 @@ export function createGaussianKernel(size: number, sigma: number): number[] {
   // Normalize
   const sum = kernel.reduce((a, b) => a + b, 0);
   return kernel.map(k => k / sum);
+}
+
+/**
+ * Draw enhanced axes and grid for the spectral graph
+ * Includes grid lines and y-axis values
+ */
+export function drawEnhancedAxes(
+  ctx: CanvasRenderingContext2D, 
+  width: number, 
+  height: number, 
+  maxIntensity = 100
+): void {
+  // Define margins for the graph
+  const margin = {
+    left: 45,  // Increased left margin for y-axis labels
+    right: 20,
+    top: 20,
+    bottom: 30  // Increased bottom margin for x-axis labels
+  };
+
+  const graphWidth = width - margin.left - margin.right;
+  const graphHeight = height - margin.top - margin.bottom;
+  
+  // Draw main axes
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  
+  // x-axis
+  ctx.moveTo(margin.left, height - margin.bottom);
+  ctx.lineTo(width - margin.right, height - margin.bottom);
+  
+  // y-axis
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, height - margin.bottom);
+  ctx.stroke();
+
+  // Draw grid lines and labels
+  ctx.lineWidth = 0.5;
+  
+  // Vertical grid lines (wavelength)
+  ctx.strokeStyle = 'rgba(102, 102, 102, 0.3)';
+  ctx.textAlign = 'center';
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#999';
+  
+  for (let wl = 400; wl <= 700; wl += 50) {
+    const x = margin.left + ((wl - 380) / (750 - 380)) * graphWidth;
+    
+    // Grid line
+    ctx.beginPath();
+    ctx.setLineDash([2, 2]);
+    ctx.moveTo(x, margin.top);
+    ctx.lineTo(x, height - margin.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Label
+    ctx.fillText(`${wl}nm`, x, height - margin.bottom + 15);
+  }
+  
+  // Horizontal grid lines (intensity)
+  const ySteps = 5; // Number of horizontal grid lines
+  ctx.textAlign = 'right';
+  
+  for (let i = 0; i <= ySteps; i++) {
+    const y = height - margin.bottom - (i / ySteps) * graphHeight;
+    const intensity = Math.round((i / ySteps) * maxIntensity);
+    
+    // Grid line
+    ctx.beginPath();
+    ctx.setLineDash([2, 2]);
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(width - margin.right, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Label
+    ctx.fillText(`${intensity}`, margin.left - 5, y + 4);
+  }
+  
+  // Y-axis label
+  ctx.save();
+  ctx.translate(15, height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Intensity', 0, 0);
+  ctx.restore();
+}
+
+/**
+ * Draw spectral line with enhanced visualization
+ * Supports grid and improved visualization
+ */
+export function drawEnhancedSpectralLine(
+  ctx: CanvasRenderingContext2D,
+  data: number[],
+  width: number,
+  height: number,
+  style: string | CanvasGradient,
+  shadowColor = 'rgba(0, 0, 0, 0.5)',
+  intensityMultiplier = 1.0
+): void {
+  // Define margins for the graph (must match those in drawEnhancedAxes)
+  const margin = {
+    left: 45,
+    right: 20,
+    top: 20,
+    bottom: 30
+  };
+
+  const graphWidth = width - margin.left - margin.right;
+  const graphHeight = height - margin.top - margin.bottom;
+  
+  // Apply additional smoothing for better visualization
+  const smoothedData = smoothSpectrum(data, 1.5);
+  
+  // Safely filter out invalid values
+  const validValues = smoothedData.filter(v => 
+    typeof v === 'number' && !isNaN(v)
+  );
+  
+  // Set a fixed max value for a more stable display
+  let maxVal = 0.1; // Minimum threshold
+
+  if (validValues.length > 0) {
+    // Check if data looks normalized (most values <= 1.0)
+    const normalizedDataCount = validValues.filter(v => v <= 1.0).length;
+    const dataAppearsNormalized = normalizedDataCount > validValues.length * 0.9;
+    
+    if (dataAppearsNormalized) {
+      // For normalized data, use a fixed scale with maximum of 1.0
+      maxVal = 1.0;
+    } else {
+      // For raw data, use a percentile approach to avoid outliers
+      const sortedValues = [...validValues].sort((a, b) => a - b);
+      const p95Index = Math.floor(sortedValues.length * 0.95);
+      const p95Value = sortedValues[p95Index] ?? sortedValues[sortedValues.length - 1] ?? 0.1;
+      maxVal = Math.max(p95Value, 0.1);
+    }
+  }
+
+  // Begin path for drawing the spectrum line
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  // Calculate x-scale based on data length and graph width
+  const xScale = graphWidth / Math.max(1, data.length - 1);
+  const points: Array<[number, number]> = [];
+  
+  // First collect all valid points
+  for (let i = 0; i < smoothedData.length; i++) {
+    const value = smoothedData[i];
+    if (typeof value !== 'number' || isNaN(value)) continue;
+    
+    // Ensure value is clamped between 0 and maxVal
+    const clampedValue = Math.max(0, Math.min(value, maxVal));
+    
+    // Convert to a 0-1 scale for consistent display
+    const normalizedValue = clampedValue / maxVal;
+    
+    // Calculate x and y coordinates
+    const x = margin.left + i * xScale;
+    
+    // Height calculations adjusted for margins
+    const y = height - margin.bottom - (normalizedValue * intensityMultiplier) * graphHeight;
+    
+    // Ensure y is within chart boundaries (with a small buffer)
+    const safeY = Math.max(margin.top, Math.min(height - margin.bottom, y));
+    
+    if (points) points.push([x, safeY]);
+  }
+  
+  // Now draw using the points
+  if (points && points.length > 0 && points[0]) {
+    // Move to the first point
+    const firstPoint = points[0];
+    if (firstPoint && typeof firstPoint[0] === 'number' && typeof firstPoint[1] === 'number') {
+      ctx.moveTo(firstPoint[0], firstPoint[1]);
+      
+      // Draw straight lines
+      for (let i = 1; i < points.length; i++) {
+        const point = points[i];
+        if (point && typeof point[0] === 'number' && typeof point[1] === 'number') {
+          ctx.lineTo(point[0], point[1]);
+        }
+      }
+    }
+  }
+
+  // Apply shadow for better visibility
+  ctx.shadowColor = shadowColor;
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  
+  // Set stroke style and line width
+  ctx.strokeStyle = style;
+  ctx.lineWidth = 2;
+  
+  // Draw the path
+  ctx.stroke();
+  
+  // Reset shadow settings
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  
+  ctx.closePath();
+}
+
+/**
+ * Draw enhanced spectrum visualization with grid
+ */
+export function drawEnhancedSpectrum(ctx: CanvasRenderingContext2D, data: number[], width: number, height: number): void {
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, width, height);
+  drawEnhancedAxes(ctx, width, height);
+
+  const gradient = ctx.createLinearGradient(20, 0, width - 20, 0);
+  for (let wl = 380; wl <= 750; wl += 10) {
+    const [r, g, b] = wavelengthToRGB(wl);
+    const stop = (wl - 380) / (750 - 380);
+    gradient.addColorStop(stop, `rgb(${r * 255},${g * 255},${b * 255})`);
+  }
+
+  drawEnhancedSpectralLine(ctx, data, width, height, gradient);
 }

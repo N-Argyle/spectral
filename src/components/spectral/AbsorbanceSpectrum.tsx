@@ -1,10 +1,9 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
 import { SpectralCanvas } from "./Canvas";
 import { 
-  drawAxes, 
-  drawSpectralLine, 
   processImageData, 
   calculateAbsorbance,
   pixelToWavelength
@@ -85,10 +84,11 @@ export function AbsorbanceSpectrum({
       top: 30,
       right: 20,
       bottom: 60, // Increased to accommodate the gradient and labels
-      left: 40
+      left: 60     // Increased to match other graphs
     };
     
     const graphHeight = displayHeight - margin.top - margin.bottom;
+    // const graphWidth = displayWidth - margin.left - margin.right;
     
     // In the new layout, zero is at the bottom
     const zeroY = displayHeight - margin.bottom;
@@ -96,6 +96,16 @@ export function AbsorbanceSpectrum({
     // Clear background
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, displayWidth, displayHeight);
+    
+    // Y-axis label
+    ctx.save();
+    ctx.translate(15, displayHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#999';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Absorbance', 0, 0);
+    ctx.restore();
     
     // Draw X axis at the bottom (zero line)
     ctx.strokeStyle = '#666';
@@ -486,7 +496,7 @@ export function AbsorbanceSpectrum({
       <SpectralCanvas
         className="w-full"
         onCanvasReady={handleCanvasReady}
-        height={400}
+        height={250}
       />
     </div>
   );

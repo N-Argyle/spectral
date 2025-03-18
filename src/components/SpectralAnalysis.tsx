@@ -17,6 +17,8 @@ interface SpectralAnalysisProps {
   referenceFrame?: ImageData;
   sampleFrame?: ImageData;
   blackoutCalibrationData?: ImageData | null;
+  setTab?: (tab: string) => void;
+  activeTab?: string;
 }
 
 export default function SpectralAnalysis({
@@ -24,12 +26,18 @@ export default function SpectralAnalysis({
   referenceFrame,
   sampleFrame,
   blackoutCalibrationData,
+  setTab,
+  activeTab: externalActiveTab
 }: SpectralAnalysisProps) {
-  const [activeTab, setActiveTab] = useState("live");
+  const [internalActiveTab, setInternalActiveTab] = useState("live");
   const [hasReference, setHasReference] = useState(false);
   const [hasSample, setHasSample] = useState(false);
-  const [spectrumData, setSpectrumData] = useState<{ wavelength: number, intensity: number }[]>([]);
-  const [absorbanceData, setAbsorbanceData] = useState<{ wavelength: number, absorbance: number }[]>([]);
+  const [, setSpectrumData] = useState<{ wavelength: number, intensity: number }[]>([]);
+  const [, setAbsorbanceData] = useState<{ wavelength: number, absorbance: number }[]>([]);
+  
+  // Use active tab from props or internal state
+  // This prevents having two sources of truth
+  const activeTab = externalActiveTab ?? internalActiveTab;
 
   // Check for reference and sample frames directly
   useEffect(() => {
@@ -43,6 +51,24 @@ export default function SpectralAnalysis({
       setHasSample(true);
     }
   }, [sampleFrame]);
+
+  // Handle tab change from within this component
+  const handleTabChange = useCallback((tab: string) => {
+    // Validate the tab can be selected based on available data
+    if (tab === "reference" && !hasReference) return;
+    if (tab === "sample" && !hasSample) return;
+    if (tab === "absorbance" && (!hasReference || !hasSample)) return;
+    
+    console.log("SpectralAnalysis: Tab change to:", tab);
+    
+    // Update internal state
+    setInternalActiveTab(tab);
+    
+    // Notify parent if callback is provided
+    if (setTab) {
+      setTab(tab);
+    }
+  }, [hasReference, hasSample, setTab]);
 
   // Handlers for receiving processed data from child components
   const previousSpectrumDataRef = useRef<string>('');
@@ -82,7 +108,7 @@ export default function SpectralAnalysis({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="live">Live Spectrum</TabsTrigger>
             <TabsTrigger value="reference" disabled={!hasReference}>Reference</TabsTrigger>

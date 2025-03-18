@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
@@ -7,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~
 import { Toggle } from "~/components/ui/toggle";
 import { CameraIcon } from "lucide-react";
 import { checkBrowserCapabilities, applyAdvancedCameraSettings } from "~/lib/camera-utils";
+import { toast } from "sonner";
 
 interface WebcamCaptureProps {
   onFrameCapture?: (imageData: ImageData, blackoutCalibrationData: ImageData | null) => void;
-  onReferenceCaptured?: (imageData: ImageData) => void;
-  onSampleCaptured?: (imageData: ImageData) => void;
+  onReferenceCaptured?: (imageData: ImageData, tabToSelect?: string) => void;
+  onSampleCaptured?: (imageData: ImageData, tabToSelect?: string) => void;
   onBlackoutCalibrated?: (imageData: ImageData) => void;
 }
 
@@ -457,10 +459,20 @@ export default function WebcamCapture({
       );
       
       if (onReferenceCaptured) {
-        onReferenceCaptured(imageData);
+        // Explicitly pass "reference" as the tab to select, using a constant string
+        console.log("WebcamCapture: Calling onReferenceCaptured with tab 'reference'");
+        onReferenceCaptured(imageData, "reference");
+        
+        // Show a toast notification
+        toast.success("Reference captured successfully", {
+          description: "Automatically switching to Reference tab"
+        });
       }
     } catch (e) {
       console.error("Error capturing reference:", e);
+      toast.error("Failed to capture reference", {
+        description: "Please try again"
+      });
     }
   };
   
@@ -517,10 +529,20 @@ export default function WebcamCapture({
       );
       
       if (onSampleCaptured) {
-        onSampleCaptured(imageData);
+        // Explicitly pass "sample" as the tab to select, using a constant string
+        console.log("WebcamCapture: Calling onSampleCaptured with tab 'sample'");
+        onSampleCaptured(imageData, "sample");
+        
+        // Show a toast notification
+        toast.success("Sample captured successfully", {
+          description: "Automatically switching to Sample tab"
+        });
       }
     } catch (e) {
       console.error("Error capturing sample:", e);
+      toast.error("Failed to capture sample", {
+        description: "Please try again"
+      });
     }
   };
 

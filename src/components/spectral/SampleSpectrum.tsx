@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { SpectralCanvas } from "./Canvas";
-import { drawAxes, drawSpectralLine, processImageData } from "./utils";
+import { drawEnhancedAxes, drawEnhancedSpectralLine, processImageData } from "./utils";
 
 interface SampleSpectrumProps {
   sampleFrame?: ImageData;
@@ -19,17 +19,18 @@ export function SampleSpectrum({ sampleFrame }: SampleSpectrumProps) {
     // Process the image data
     const intensityData = processImageData(sampleFrame);
     
-    // Draw the axes
-    drawAxes(ctx, displayWidth, displayHeight);
+    // Draw the enhanced axes with grid
+    drawEnhancedAxes(ctx, displayWidth, displayHeight, 100);
     
-    // Draw the spectral line
-    drawSpectralLine(
+    // Draw the spectral line with enhanced visualization
+    drawEnhancedSpectralLine(
       ctx,
       intensityData,
       displayWidth,
       displayHeight,
       "rgba(0, 200, 255, 0.8)",
-      "rgba(0, 200, 255, 0.3)"
+      "rgba(0, 200, 255, 0.3)",
+      0.95 // Using a slightly lower intensity multiplier for better display
     );
   }, [sampleFrame]);
 
@@ -38,6 +39,7 @@ export function SampleSpectrum({ sampleFrame }: SampleSpectrumProps) {
       <SpectralCanvas
         className="w-full"
         onCanvasReady={handleCanvasReady}
+        height={250} // Increased height for better visualization
       />
     </div>
   );

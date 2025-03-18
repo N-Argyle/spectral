@@ -7,12 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Button } from "~/components/ui/button";
 import { Download } from "lucide-react";
 import { BlackoutStatus } from "~/components/spectral/BlackoutStatus";
+import { toast } from "sonner";
 import Image from "next/image";
+
 export default function HomePage() {
   const [currentFrame, setCurrentFrame] = useState<ImageData | undefined>();
   const [referenceFrame, setReferenceFrame] = useState<ImageData | undefined>();
   const [sampleFrame, setSampleFrame] = useState<ImageData | undefined>();
   const [blackoutCalibrationData, setBlackoutCalibrationData] = useState<ImageData | null>(null);
+  const [activeTab, setActiveTab] = useState("live");
 
   // Debug log for frame updates
   useEffect(() => {
@@ -34,22 +37,71 @@ export default function HomePage() {
       blackoutCalibrationData ? `${blackoutCalibrationData.width}x${blackoutCalibrationData.height}` : "null");
   }, [blackoutCalibrationData]);
 
+  // Debug log for active tab changes
+  useEffect(() => {
+    console.log("HomePage: Active tab changed to:", activeTab);
+  }, [activeTab]);
+
   // Handle blackout calibration
   const handleBlackoutCalibrated = useCallback((imageData: ImageData) => {
     console.log("Blackout calibration received in parent");
     setBlackoutCalibrationData(imageData);
+    toast.success("Blackout calibration completed", {
+      description: "Your spectral readings will now have improved accuracy"
+    });
   }, []);
 
   // Handle frame capture from webcam
-  const handleFrameCapture = useCallback((imageData: ImageData, blackoutData: ImageData | null) => {
+  const handleFrameCapture = useCallback((imageData: ImageData) => {
     if (imageData && imageData.width > 0 && imageData.height > 0) {
       setCurrentFrame(imageData);
-      
-      // The blackoutData should come from the WebcamCapture component's blackoutCalibrationRef
-      // Don't modify blackoutCalibrationData here, as that happens in handleBlackoutCalibrated
-      // This prevents potential update loops between the components
     }
-  }, []); // Empty dependency array ensures this doesn't change with other state changes
+  }, []);
+
+  // Handle reference capture with tab selection
+  const handleReferenceCaptured = useCallback((imageData: ImageData, tabToSelect?: string) => {
+    console.log("HomePage: Reference captured, tab to select:", tabToSelect);
+    
+    // First set the reference frame
+    setReferenceFrame(imageData);
+    
+    // Then change the tab if specified (after frame is set)
+    if (tabToSelect) {
+      setActiveTab(tabToSelect);
+    }
+  }, []);
+
+  // Handle sample capture with tab selection
+  const handleSampleCaptured = useCallback((imageData: ImageData, tabToSelect?: string) => {
+    console.log("HomePage: Sample captured, tab to select:", tabToSelect);
+    
+    // First set the sample frame
+    setSampleFrame(imageData);
+    
+    // Then change the tab if specified (after frame is set)
+    if (tabToSelect) {
+      setActiveTab(tabToSelect);
+    }
+    
+    // If we have both reference and sample, suggest viewing absorbance
+    if (referenceFrame) {
+      setTimeout(() => {
+        toast.info("Absorbance data is ready", {
+          description: "Switch to the Absorbance tab to view your results",
+          action: {
+            label: "View Absorbance",
+            onClick: () => setActiveTab("absorbance")
+          }
+        });
+      }, 1000); // Delay to show after the sample capture toast
+    }
+  }, [referenceFrame]);
+
+  // Handle tab changes from SpectralAnalysis component
+  const handleTabChange = useCallback((tab: string) => {
+    console.log("HomePage: Tab change requested to:", tab);
+    setActiveTab(tab);
+  }, []);
 
   const downloadSpectralData = () => {
     if (!referenceFrame || !sampleFrame) return;
@@ -103,7 +155,7 @@ export default function HomePage() {
     // Create CSV content
     let csvContent = 'Wavelength (nm),Reference Intensity,Sample Intensity,Absorbance\n';
     for (let i = 0; i < wavelengths.length; i++) {
-      csvContent += `${wavelengths[i]},${referenceData[i].toFixed(2)},${sampleData[i].toFixed(2)},${absorbanceData[i].toFixed(4)}\n`;
+      csvContent += `${wavelengths[i]},${referenceData[i]?.toFixed(2) ?? 0},${sampleData[i]?.toFixed(2) ?? 0},${absorbanceData[i]?.toFixed(4) ?? 0}\n`;
     }
     
     // Create and download file
@@ -132,8 +184,8 @@ export default function HomePage() {
           <div>
             <WebcamCapture 
               onFrameCapture={handleFrameCapture}
-              onReferenceCaptured={setReferenceFrame}
-              onSampleCaptured={setSampleFrame}
+              onReferenceCaptured={handleReferenceCaptured}
+              onSampleCaptured={handleSampleCaptured}
               onBlackoutCalibrated={handleBlackoutCalibrated}
             />
           </div>
@@ -144,6 +196,8 @@ export default function HomePage() {
               referenceFrame={referenceFrame}
               sampleFrame={sampleFrame}
               blackoutCalibrationData={blackoutCalibrationData}
+              setTab={handleTabChange}
+              activeTab={activeTab}
             />
           </div>
           
@@ -160,9 +214,9 @@ export default function HomePage() {
                     <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
                       <li>Place an empty cuvet (or solvent reference) in front of the light source</li>
                       <li>Adjust the selection box to capture the spectrum</li>
-                      <li>Click "Capture Reference" to record baseline</li>
+                      <li>Click &quot;Capture Reference&quot; to record baseline</li>
                       <li>Replace with your sample cuvet</li>
-                      <li>Click "Capture Sample" to record sample spectrum</li>
+                      <li>Click &quot;Capture Sample&quot; to record sample spectrum</li>
                       <li>View the absorbance tab to see results</li>
                       <li>Download data for further analysis</li>
                     </ol>

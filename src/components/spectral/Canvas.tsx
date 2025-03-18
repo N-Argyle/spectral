@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
@@ -43,7 +44,6 @@ export function SpectralCanvas({
     dimensionsRef.current.height = height;
     if (setupDoneRef.current && canvasRef.current && callbackRef.current && ctxRef.current) {
       // Recalculate dimensions and redraw
-      const displayWidth = canvasRef.current.clientWidth;
       setupDoneRef.current = false; // Force setup to run again
       setupCanvas();
     }
